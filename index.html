@@ -1,0 +1,228 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AR AI</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0c1020;color:white;font-family:Arial,sans-serif}
+header{padding:17px 20px;background:#151b30;border-bottom:1px solid #29334e;display:flex;align-items:center;gap:10px}
+.logo{background:#3478f6;padding:10px;border-radius:12px;font-weight:bold}
+header h2{margin:0;font-size:20px}
+header small{color:#9ca9c5}
+nav{display:flex;gap:8px;padding:12px;overflow-x:auto}
+button,select,input,textarea{font:inherit}
+nav button,.action{border:0;border-radius:10px;padding:11px 15px;background:#202a43;color:white;cursor:pointer}
+nav button.active,.action{background:#3478f6}
+main{max-width:850px;margin:auto;padding:15px}
+.panel{display:none}
+.panel.active{display:block}
+h3{margin-top:10px}
+.muted{color:#9ba9c4;font-size:13px}
+.chat{height:52vh;min-height:300px;overflow-y:auto;background:#131a2c;border:1px solid #29334e;border-radius:14px;padding:14px}
+.msg{padding:12px;margin:8px 0;border-radius:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.user{background:#244b91;margin-left:35px}
+.bot{background:#202a40;margin-right:25px}
+.composer{display:flex;gap:8px;margin-top:10px}
+input,textarea,select{width:100%;background:#151e32;color:white;border:1px solid #35415c;border-radius:10px;padding:12px;outline:none}
+textarea{resize:vertical;min-height:90px}
+.composer input{flex:1;min-width:0}
+.action{font-weight:bold}
+.action:disabled{opacity:.5}
+.field{margin:16px 0}
+.field label{display:block;margin-bottom:8px;font-size:14px}
+.preview{margin-top:15px;max-width:100%;border-radius:12px}
+#status{margin-top:12px;color:#a9bbdf}
+footer{text-align:center;color:#687795;padding:25px;font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+ <div class="logo">AR</div>
+ <div>
+  <h2>AR AI</h2>
+  <small>Your AI Assistant</small>
+ </div>
+</header>
+
+<nav>
+ <button class="active" onclick="show('chat',this)">Chat AI</button>
+ <button onclick="show('image',this)">Generate Gambar</button>
+ <button onclick="show('task',this)">Tugas</button>
+</nav>
+
+<main>
+<section id="chat" class="panel active">
+ <h3>✦ Ngobrol dengan AR AI</h3>
+ <p class="muted">Tanyakan apa saja, belajar, berdiskusi, atau minta bantuan.</p>
+ <div class="chat" id="messages">
+  <div class="msg bot">Halo! Aku AR AI. Ada yang bisa aku bantu hari ini?</div>
+ </div>
+ <div class="composer">
+  <input id="question" placeholder="Tulis pesan..." onkeydown="if(event.key==='Enter')sendChat()">
+  <button class="action" onclick="sendChat()">Kirim</button>
+ </div>
+</section>
+
+<section id="image" class="panel">
+ <h3>🎨 Generate Gambar</h3>
+ <p class="muted">Ubah ide menjadi gambar dengan AI.</p>
+ <div class="field">
+  <label>Deskripsi gambar</label>
+  <textarea id="prompt" placeholder="Contoh: Pemandangan gunung dan danau bergaya anime..."></textarea>
+ </div>
+ <div class="field">
+  <label>Rasio gambar</label>
+  <select id="ratio" onchange="customRatio()">
+   <option value="1:1">1:1 - Persegi</option>
+   <option value="16:9">16:9 - Landscape</option>
+   <option value="9:16">9:16 - Portrait</option>
+   <option value="4:3">4:3</option>
+   <option value="3:4">3:4</option>
+   <option value="3:2">3:2</option>
+   <option value="2:3">2:3</option>
+   <option value="21:9">21:9 - Panorama</option>
+   <option value="custom">Custom - Bebas</option>
+  </select>
+ </div>
+ <div id="custom" style="display:none">
+  <div class="field">
+   <label>Lebar (pixel)</label>
+   <input type="number" id="width" value="1200" min="64" max="4096">
+  </div>
+  <div class="field">
+   <label>Tinggi (pixel)</label>
+   <input type="number" id="height" value="1200" min="64" max="4096">
+  </div>
+ </div>
+ <button class="action" onclick="generateImage()">Generate Gambar</button>
+ <div id="imageStatus"></div>
+ <div id="imageResult"></div>
+</section>
+
+<section id="task" class="panel">
+ <h3>📚 Asisten Tugas</h3>
+ <p class="muted">Bantu memahami pelajaran dan mengerjakan latihan.</p>
+ <div class="field">
+  <label>Pertanyaan atau soal</label>
+  <textarea id="taskQuestion" placeholder="Masukkan soal atau pertanyaan di sini..."></textarea>
+ </div>
+ <button class="action" onclick="solveTask()">Bantu Kerjakan</button>
+ <div id="taskStatus"></div>
+ <div id="taskResult" class="msg bot" style="display:none"></div>
+</section>
+</main>
+
+<footer>AR AI © 2026 · Artificial Intelligence Assistant</footer>
+
+<script>
+function show(id,btn){
+ document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+ document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+ document.getElementById(id).classList.add('active');
+ btn.classList.add('active');
+}
+
+function customRatio(){
+ document.getElementById('custom').style.display=
+ document.getElementById('ratio').value==='custom'?'block':'none';
+}
+
+async function askAI(message){
+ const response=await fetch('/api/chat',{
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({message})
+ });
+ if(!response.ok)throw Error('Server AI bermasalah: '+response.status);
+ const data=await response.json();
+ return data.reply;
+}
+
+function addMessage(text,type){
+ const div=document.createElement('div');
+ div.className='msg '+type;
+ div.textContent=text;
+ const box=document.getElementById('messages');
+ box.appendChild(div);
+ box.scrollTop=box.scrollHeight;
+ return div;
+}
+
+async function sendChat(){
+ const input=document.getElementById('question');
+ const message=input.value.trim();
+ if(!message)return;
+ input.value='';
+ addMessage(message,'user');
+ const waiting=addMessage('AR AI sedang berpikir...','bot');
+ try{
+  waiting.textContent=await askAI(message);
+ }catch(e){
+  waiting.textContent='Gagal terhubung ke AI. Pastikan backend sudah aktif.';
+ }
+}
+
+async function solveTask(){
+ const q=document.getElementById('taskQuestion').value.trim();
+ if(!q)return alert('Masukkan soal terlebih dahulu.');
+ const status=document.getElementById('taskStatus');
+ const result=document.getElementById('taskResult');
+ status.textContent='AR AI sedang memahami soal...';
+ result.style.display='none';
+ try{
+  const answer=await askAI(
+   'Bantu saya memahami dan mengerjakan tugas berikut. Berikan langkah dan penjelasan yang mudah dipahami:\n'+q
+  );
+  result.textContent=answer;
+  result.style.display='block';
+  status.textContent='Selesai!';
+ }catch(e){
+  status.textContent='Gagal terhubung ke server AI.';
+ }
+}
+
+async function generateImage(){
+ const prompt=document.getElementById('prompt').value.trim();
+ if(!prompt)return alert('Isi deskripsi gambar terlebih dahulu.');
+ const ratio=document.getElementById('ratio').value;
+ let aspect_ratio=ratio;
+ let width,height;
+ if(ratio==='custom'){
+  width=Number(document.getElementById('width').value);
+  height=Number(document.getElementById('height').value);
+  if(!Number.isInteger(width)||!Number.isInteger(height)||width<64||height<64||width>4096||height>4096){
+   return alert('Ukuran harus berupa bilangan bulat 64 sampai 4096.');
+  }
+  aspect_ratio=width+':'+height;
+ }
+ const status=document.getElementById('imageStatus');
+ const result=document.getElementById('imageResult');
+ status.textContent='Sedang membuat gambar...';
+ result.innerHTML='';
+ try{
+  const response=await fetch('/api/image',{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({prompt,aspect_ratio,width,height})
+  });
+  if(!response.ok)throw Error('Gagal membuat gambar');
+  const data=await response.json();
+  if(!data.image_url)throw Error('Server tidak mengirim gambar');
+  const img=document.createElement('img');
+  img.src=data.image_url;
+  img.alt='Hasil gambar AR AI';
+  img.className='preview';
+  result.appendChild(img);
+  status.textContent='Gambar berhasil dibuat!';
+ }catch(e){
+  status.textContent='Belum berhasil. Pastikan layanan generate gambar sudah terhubung.';
+ }
+}
+</script>
+</body>
+   </html>
+  
